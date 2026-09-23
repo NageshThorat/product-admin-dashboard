@@ -13,6 +13,8 @@ import { Plus, Search, Edit2, Trash2, Eye } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
+export const dynamic = 'force-dynamic';
+
 // Fake state helper to keep track of local changes
 let localModifications: {
   added: Product[];
