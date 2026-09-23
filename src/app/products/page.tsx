@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { productService, categoryService, Product, Category } from '@/lib/services';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -13,7 +13,7 @@ import { Plus, Search, Edit2, Trash2, Eye } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
-export const dynamic = 'force-dynamic';
+
 
 // Fake state helper to keep track of local changes
 let localModifications: {
@@ -26,7 +26,7 @@ let localModifications: {
   deleted: new Set(),
 };
 
-export default function ProductsPage() {
+function ProductsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -425,5 +425,13 @@ export default function ProductsPage() {
         onConfirm={handleDeleteProduct}
       />
     </div>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={<LoadingState message="Loading dashboard..." />}>
+      <ProductsContent />
+    </Suspense>
   );
 }
