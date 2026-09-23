@@ -198,15 +198,29 @@ function ProductsContent() {
   };
 
   // Calculate displayed products on the fly
+  let localAdded = [...modifications.added];
+  if (searchParam) {
+    const lowerSearch = searchParam.toLowerCase();
+    localAdded = localAdded.filter(p => 
+      p.title?.toLowerCase().includes(lowerSearch) || 
+      p.description?.toLowerCase().includes(lowerSearch)
+    );
+  }
+  if (categoryParam) {
+    localAdded = localAdded.filter(p => p.category === categoryParam);
+  }
+
   let displayedProducts = [...apiProducts];
   displayedProducts = displayedProducts.filter((p) => !modifications.deleted.includes(p.id));
   displayedProducts = displayedProducts.map((p) =>
     modifications.edited[p.id] ? { ...p, ...modifications.edited[p.id] } : p
   );
-  if (page === 1 && !searchParam && !categoryParam) {
-    displayedProducts = [...modifications.added, ...displayedProducts].slice(0, limit);
+
+  if (page === 1) {
+    displayedProducts = [...localAdded, ...displayedProducts].slice(0, limit);
   }
-  const displayTotal = apiTotal + modifications.added.length;
+  const displayTotal = apiTotal + localAdded.length;
+
 
   return (
     <div className="space-y-6">
