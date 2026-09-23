@@ -12,19 +12,7 @@ import { ConfirmDeleteModal } from '@/components/ConfirmDeleteModal';
 import { Plus, Search, Edit2, Trash2, Eye } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-
-
-
-// Fake state helper to keep track of local changes
-let localModifications: {
-  added: Product[];
-  edited: Record<number, Product>;
-  deleted: Set<number>;
-} = {
-  added: [],
-  edited: {},
-  deleted: new Set(),
-};
+import { useLocalModifications } from '@/hooks/useLocalModifications';
 
 function ProductsContent() {
   const router = useRouter();
@@ -44,9 +32,11 @@ function ProductsContent() {
   const debouncedSearch = useDebounce(searchInput, 500);
   const isFirstRender = useRef(true);
 
+  const { modifications, isLoaded, addProduct, editProduct, deleteProduct } = useLocalModifications();
+
   // Data State
-  const [products, setProducts] = useState<Product[]>([]);
-  const [total, setTotal] = useState(0);
+  const [apiProducts, setApiProducts] = useState<Product[]>([]);
+  const [apiTotal, setApiTotal] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -134,24 +124,8 @@ function ProductsContent() {
         );
       }
 
-      // Apply local modifications
-      let updatedProducts = [...data.products];
-
-      // Remove deleted
-      updatedProducts = updatedProducts.filter((p) => !localModifications.deleted.has(p.id));
-
-      // Apply edits
-      updatedProducts = updatedProducts.map((p) =>
-        localModifications.edited[p.id] ? { ...p, ...localModifications.edited[p.id] } : p
-      );
-
-      // Add newly added items to the first page (simplified logic)
-      if (page === 1 && !searchParam && !categoryParam) {
-         updatedProducts = [...localModifications.added, ...updatedProducts].slice(0, limit);
-      }
-
-      setProducts(updatedProducts);
-      setTotal(data.total + localModifications.added.length);
+      setApiProducts(data.products);
+      setApiTotal(data.total);
     } catch (err: any) {
       if (err.name !== 'CanceledError') {
         setError('Failed to fetch products. Please try again.');
@@ -190,15 +164,14 @@ function ProductsContent() {
         if (selectedProduct.id < 100000) {
           await productService.updateProduct(selectedProduct.id, formData);
         }
-        localModifications.edited[selectedProduct.id] = { ...selectedProduct, ...formData } as Product;
+        editProduct(selectedProduct.id, formData);
       } else {
         // Add
         const res = await productService.addProduct(formData);
         const newProduct = { ...res, id: Date.now() }; // Fake ID since dummyjson returns id: 281 for all additions
-        localModifications.added.unshift(newProduct);
+        addProduct(newProduct);
       }
       setIsFormOpen(false);
-      fetchProducts(); // Re-fetch or just re-apply local mods
     } catch (err) {
       console.error(err);
       alert('Failed to save product');
@@ -214,9 +187,8 @@ function ProductsContent() {
       if (selectedProduct.id < 100000) {
         await productService.deleteProduct(selectedProduct.id);
       }
-      localModifications.deleted.add(selectedProduct.id);
+      deleteProduct(selectedProduct.id);
       setIsDeleteOpen(false);
-      fetchProducts();
     } catch (err) {
       console.error(err);
       alert('Failed to delete product');
@@ -224,6 +196,17 @@ function ProductsContent() {
       setIsSaving(false);
     }
   };
+
+  // Calculate displayed products on the fly
+  let displayedProducts = [...apiProducts];
+  displayedProducts = displayedProducts.filter((p) => !modifications.deleted.includes(p.id));
+  displayedProducts = displayedProducts.map((p) =>
+    modifications.edited[p.id] ? { ...p, ...modifications.edited[p.id] } : p
+  );
+  if (page === 1 && !searchParam && !categoryParam) {
+    displayedProducts = [...modifications.added, ...displayedProducts].slice(0, limit);
+  }
+  const displayTotal = apiTotal + modifications.added.length;
 
   return (
     <div className="space-y-6">
@@ -285,11 +268,11 @@ function ProductsContent() {
         </div>
       </div>
 
-      {loading ? (
+      {!isLoaded || loading ? (
         <LoadingState message="Loading products..." />
       ) : error ? (
         <ErrorState message={error} onRetry={fetchProducts} />
-      ) : products.length === 0 ? (
+      ) : displayedProducts.length === 0 ? (
         <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
           <p className="text-gray-500 dark:text-gray-400">No products found.</p>
         </div>
@@ -309,7 +292,7 @@ function ProductsContent() {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {products.map((product) => (
+                {displayedProducts.map((product) => (
                   <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -362,7 +345,7 @@ function ProductsContent() {
 
           {/* Mobile Cards */}
           <div className="grid grid-cols-1 gap-4 md:hidden">
-            {products.map((product) => (
+            {displayedProducts.map((product) => (
               <div key={product.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0 h-16 w-16 relative bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
@@ -405,8 +388,8 @@ function ProductsContent() {
           <Pagination
             currentPage={page}
             limit={limit}
-            totalItems={total}
-            totalPages={Math.ceil(total / limit)}
+            totalItems={displayTotal}
+            totalPages={Math.ceil(displayTotal / limit)}
             onPageChange={(p) => updateUrl({ page: p.toString() })}
             onLimitChange={(l) => updateUrl({ limit: l.toString(), page: '1' })}
           />
