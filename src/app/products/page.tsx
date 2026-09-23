@@ -187,7 +187,9 @@ function ProductsContent() {
     try {
       if (selectedProduct) {
         // Edit
-        const res = await productService.updateProduct(selectedProduct.id, formData);
+        if (selectedProduct.id < 100000) {
+          await productService.updateProduct(selectedProduct.id, formData);
+        }
         localModifications.edited[selectedProduct.id] = { ...selectedProduct, ...formData } as Product;
       } else {
         // Add
@@ -209,7 +211,9 @@ function ProductsContent() {
     if (!selectedProduct) return;
     setIsSaving(true);
     try {
-      await productService.deleteProduct(selectedProduct.id);
+      if (selectedProduct.id < 100000) {
+        await productService.deleteProduct(selectedProduct.id);
+      }
       localModifications.deleted.add(selectedProduct.id);
       setIsDeleteOpen(false);
       fetchProducts();
