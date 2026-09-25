@@ -186,6 +186,9 @@ function ProductsContent() {
     try {
       if (selectedProduct.id < 100000) {
         await productService.deleteProduct(selectedProduct.id);
+      } else {
+        // Artificial delay for locally added products so the "Deleting..." UI shows
+        await new Promise((resolve) => setTimeout(resolve, 600));
       }
       deleteProduct(selectedProduct.id);
       setIsDeleteOpen(false);
