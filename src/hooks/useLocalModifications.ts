@@ -61,6 +61,7 @@ export function useLocalModifications() {
   const deleteProduct = useCallback((id: number) => {
     updateModifications({
       ...modifications,
+      added: modifications.added.filter((p) => p.id !== id),
       deleted: [...modifications.deleted, id],
     });
   }, [modifications, updateModifications]);
